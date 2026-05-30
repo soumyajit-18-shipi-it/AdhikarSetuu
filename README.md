@@ -1,4 +1,4 @@
-# 🚀 [Project Name]: Civic Intelligence for MSMEs
+# 🚀 AdhikarSetu: Civic Intelligence for MSMEs
 > **Automating MSME subsidy discovery and compliance. Because businesses shouldn't need expensive consultants just to claim what is rightfully theirs.**
 
 ## 💡 The Problem: The B2B Policy Gap
