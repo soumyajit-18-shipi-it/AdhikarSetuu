@@ -4,7 +4,6 @@ import Navbar from '@/components/navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { uploadRejection } from '@/services/api';
-import { REJECTION_NOTICE as MOCK_REJECTION } from '@/lib/mock-data';
 import {
   Upload, FileText, Brain, AlertTriangle, CheckCircle2,
   Circle, ChevronDown, ChevronUp, Sparkles, FileWarning, RefreshCw, Info
@@ -39,6 +38,9 @@ export default function RejectionPage() {
   const aiExplanation = result?.aiExplanation ?? (result ? { summary: result.summary, reasons: result.reasons, requiredFixes: result.required_fixes } : null);
   const totalCount = aiExplanation?.requiredFixes?.length || 0;
   const documentName = result?.document?.name || result?.documentName || 'Uploaded Document';
+  const criticalCount = aiExplanation?.reasons?.filter((reason: any) => reason.severity === 'critical').length || 0;
+  const moderateCount = aiExplanation?.reasons?.filter((reason: any) => reason.severity === 'moderate').length || 0;
+  const resolutionDays = result?.estimated_resolution_days || 3;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -76,10 +78,8 @@ export default function RejectionPage() {
                 setError(null);
               } catch (err) {
                 console.error(err);
-                // fallback to mock explanation so demo can continue
-                setResult(MOCK_REJECTION);
-                setAnalyzed(true);
-                setError('Upload failed — using demo explanation');
+                setAnalyzed(false);
+                setError('Upload failed. Please try again.');
               } finally {
                 setAnalyzing(false);
               }
@@ -148,7 +148,7 @@ export default function RejectionPage() {
                   <div>
                       <div className="text-white font-bold text-lg">{aiExplanation?.summary}</div>
                     <div className="text-white/60 text-sm mt-0.5">
-                      2 critical issues • 1 moderate issue • Fixable in ~3 days
+                      {criticalCount} critical issues • {moderateCount} moderate issue{moderateCount === 1 ? '' : 's'} • Fixable in ~{resolutionDays} days
                     </div>
                   </div>
                 </div>

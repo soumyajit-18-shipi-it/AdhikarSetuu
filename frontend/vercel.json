@@ -1,8 +1,5 @@
 {
   "framework": "nextjs",
   "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "env": {
-    "NEXT_PUBLIC_API_BASE_URL": "https://civictech-hackathon.onrender.com"
-  }
+  "buildCommand": "npm run build"
 }

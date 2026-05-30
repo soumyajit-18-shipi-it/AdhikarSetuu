@@ -5,21 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import { useProfile } from '@/hooks/useProfile';
-import { calculateLoss, type ProfilePayload } from '@/services/api';
-import { CALCULATOR_DATA as MOCK_CALCULATOR } from '@/lib/mock-data';
+import { checkEligibility, type ProfilePayload } from '@/services/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area,
 } from 'recharts';
 import { IndianRupee, TrendingUp, AlertTriangle, CheckCircle2, ArrowRight, Info } from 'lucide-react';
-
-const SCHEME_ROWS = [
-  { scheme: 'CGTMSE', year1: 120000, year2: 180000, year3: 200000, total: 500000, status: 'eligible' },
-  { scheme: 'PMFME', year1: 200000, year2: 150000, year3: 100000, total: 450000, status: 'eligible' },
-  { scheme: 'ZED Cert', year1: 40000, year2: 40000, year3: 0, total: 80000, status: 'eligible' },
-  { scheme: 'TS-iPASS', year1: 60000, year2: 80000, year3: 110000, total: 250000, status: 'eligible' },
-  { scheme: 'MUDRA', year1: 50000, year2: 50000, year3: 50000, total: 150000, status: 'eligible' },
-];
 
 function formatRupees(val: number) {
   if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
@@ -46,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function CalculatorPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
-  const { profile } = useProfile();
+  const { profile, matchResult } = useProfile();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,15 +47,14 @@ export default function CalculatorPage() {
     async function load() {
       setLoading(true);
       try {
-        const res = await calculateLoss(currentProfile);
+        const res = matchResult || (await checkEligibility(currentProfile));
         if (!mounted) return;
-        setData(res);
+        setData(res.loss || null);
         setError(null);
       } catch (e) {
         console.error(e);
-        setError('Failed to calculate loss — using demo estimates');
-        // fallback to demo data
-        setData(MOCK_CALCULATOR as any);
+        setError('Failed to calculate loss.');
+        setData(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -123,10 +113,10 @@ export default function CalculatorPage() {
               </div>
               <div className="grid grid-cols-2 gap-4 md:min-w-64">
                 {[
-                  { label: 'Year 1', amount: 470000 },
-                  { label: 'Year 2', amount: 500000 },
-                  { label: 'Year 3', amount: 460000 },
-                  { label: '3-Year Total', amount: 1250000 },
+                  { label: 'Year 1', amount: data?.breakdown?.reduce((sum: number, item: any) => sum + (item.year1 || 0), 0) || 0 },
+                  { label: 'Year 2', amount: data?.breakdown?.reduce((sum: number, item: any) => sum + (item.year2 || 0), 0) || 0 },
+                  { label: 'Year 3', amount: data?.breakdown?.reduce((sum: number, item: any) => sum + (item.year3 || 0), 0) || 0 },
+                  { label: '3-Year Total', amount: data?.totalPotential || 0 },
                 ].map((item, i) => (
                   <div key={i} className="glass-card rounded-xl p-4 text-center">
                     <div className={`font-bold text-white ${i === 3 ? 'text-xl' : 'text-lg'}`}>
@@ -141,6 +131,12 @@ export default function CalculatorPage() {
 
           {/* Action bar */}
           <div className="px-8 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+
+            {!loading && !data && !error && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center text-slate-500">
+                No calculator data available for the selected profile.
+              </div>
+            )}
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Info size={14} />
               These are conservative estimates. Actual benefits may vary based on application quality.
@@ -206,7 +202,7 @@ export default function CalculatorPage() {
               <ResponsiveContainer width="100%" height={240}>
                 {loading ? (
                   <div className="h-48 flex items-center justify-center">Loading chart…</div>
-                ) : (
+                ) : data?.breakdown?.length ? (
                   <BarChart data={data?.breakdown || []} barSize={14}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="scheme" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -217,6 +213,8 @@ export default function CalculatorPage() {
                     <Bar dataKey="year3" name="Year 3" fill="hsl(162,63%,41%)" radius={[3, 3, 0, 0]} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                   </BarChart>
+                ) : (
+                  <div className="h-48 flex items-center justify-center text-slate-500">No chart data available.</div>
                 )}
               </ResponsiveContainer>
             </div>

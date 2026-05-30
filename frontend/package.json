@@ -1,9 +1,6 @@
 {
   "name": "adhikarsetu-root",
   "private": true,
-  "engines": {
-    "node": "18.x"
-  },
   "workspaces": [
     "frontend"
   ],

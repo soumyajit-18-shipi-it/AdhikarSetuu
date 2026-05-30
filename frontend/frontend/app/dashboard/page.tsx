@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useEffect, useState } from 'react';
-import { SCHEMES as MOCK_SCHEMES } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/hooks/useProfile';
-import { matchSchemes, type ProfilePayload } from '@/services/api';
+import { checkEligibility, type ProfilePayload } from '@/services/api';
 import {
   CheckCircle2, XCircle, AlertCircle, Filter, Search,
   IndianRupee, ExternalLink, ChevronRight, TrendingUp, Award, Calculator
@@ -76,17 +75,14 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = matchResult || (await matchSchemes(activeProfile));
+        const res = matchResult || (await checkEligibility(activeProfile));
         if (!mounted) return;
         setMatchResult(res);
         setSummary(res.summary || null);
         setSchemes(res.schemes || []);
       } catch (e) {
         console.error(e);
-        setError('Failed to load matched schemes. Using demo data.');
-        // fallback to mock schemes so demo works
-        setSchemes(MOCK_SCHEMES as any[]);
-        setSummary({ total_schemes: MOCK_SCHEMES.length, eligible_count: MOCK_SCHEMES.filter((s: any) => s.eligibilityStatus === 'eligible').length });
+        setError('Failed to load matched schemes.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -209,6 +205,12 @@ export default function DashboardPage() {
                 <Button size="sm" variant="outline" onClick={() => router.refresh()}>Retry</Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && !error && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center text-slate-500">
+            No schemes matched your current filters.
           </div>
         )}
 

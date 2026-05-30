@@ -7,10 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { getSectors, getDistricts, matchSchemes } from '@/services/api';
+import { checkEligibility, getDemoProfiles, getSectors, getDistricts } from '@/services/api';
 import { useProfile } from '@/hooks/useProfile';
-import DEMO_PROFILES from '@/data/demoProfiles';
-import { SECTORS as MOCK_SECTORS, TELANGANA_DISTRICTS as MOCK_DISTRICTS } from '@/lib/mock-data';
 import { Building2, MapPin, Users, IndianRupee, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,11 +28,13 @@ export default function ProfilePage() {
   });
   const [sectors, setSectors] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
+  const [demoProfiles, setDemoProfiles] = useState<any[]>([]);
 
   useEffect(() => {
     let mounted = true;
-    getSectors().then((s) => mounted && setSectors(s)).catch(() => setSectors(MOCK_SECTORS));
-    getDistricts().then((d) => mounted && setDistricts(d)).catch(() => setDistricts(MOCK_DISTRICTS));
+    getSectors().then((s) => mounted && setSectors(s));
+    getDistricts().then((d) => mounted && setDistricts(d));
+    getDemoProfiles().then((profiles) => mounted && setDemoProfiles(profiles));
     return () => { mounted = false; };
   }, []);
 
@@ -56,6 +56,23 @@ export default function ProfilePage() {
     return parseInt(val, 10) || 0;
   }
 
+  function _turnoverToRange(val: number): string {
+    if (val <= 500000) return 'under-5l';
+    if (val <= 2500000) return '25l-1cr';
+    if (val <= 5000000) return '1cr-5cr';
+    if (val <= 10000000) return '5cr-10cr';
+    return 'above-10cr';
+  }
+
+  function _employeesToRange(val: number): string {
+    if (val <= 5) return '1-5';
+    if (val <= 20) return '6-20';
+    if (val <= 50) return '21-50';
+    if (val <= 100) return '51-100';
+    if (val <= 250) return '101-250';
+    return 'above-250';
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -72,7 +89,7 @@ export default function ProfilePage() {
       };
 
       setProfile(payload);
-      const res = await matchSchemes(payload);
+      const res = await checkEligibility(payload);
       setMatchResult(res);
       router.push('/dashboard');
     } catch (err) {
@@ -271,7 +288,7 @@ export default function ProfilePage() {
                         className="h-9 rounded border-slate-200"
                         onChange={(e) => {
                           const idx = Number(e.target.value);
-                          const demo = DEMO_PROFILES[idx];
+                          const demo = demoProfiles[idx];
                           if (!demo) return;
                           setForm({
                             businessName: demo.business_name,
@@ -286,26 +303,27 @@ export default function ProfilePage() {
                         }}
                       >
                         <option value="0">Load Demo Profile</option>
-                        {DEMO_PROFILES.map((d, i) => (
+                        {demoProfiles.map((d, i) => (
                           <option key={i} value={i}>{d.business_name}</option>
                         ))}
                       </select>
-                      <Button type="button" variant="ghost" onClick={() => {
-                        // quick fallback: populate first demo
-                        const demo = DEMO_PROFILES[0];
-                        setForm({
-                          businessName: demo.business_name,
-                          sector: demo.sector,
-                          annualTurnover: '25l-1cr',
-                          employees: '21-50',
-                          gstRegistered: demo.gst_registered ? 'yes' : 'no',
-                          exporter: demo.exporter ? 'yes' : 'no',
-                          womenOwned: demo.women_owned ? 'yes' : 'no',
-                          district: demo.district,
-                        });
-                      }}>
-                        Load Demo
-                      </Button>
+                      {demoProfiles.length > 0 && (
+                        <Button type="button" variant="ghost" onClick={() => {
+                          const demo = demoProfiles[0];
+                          setForm({
+                            businessName: demo.business_name,
+                            sector: demo.sector,
+                            annualTurnover: _turnoverToRange(demo.annual_turnover),
+                            employees: _employeesToRange(demo.employees),
+                            gstRegistered: demo.gst_registered ? 'yes' : 'no',
+                            exporter: demo.exporter ? 'yes' : 'no',
+                            womenOwned: demo.women_owned ? 'yes' : 'no',
+                            district: demo.district,
+                          });
+                        }}>
+                          Load Demo
+                        </Button>
+                      )}
                     </div>
                     {!isComplete && (
                       <p className="text-xs text-slate-400 text-center mt-2">
