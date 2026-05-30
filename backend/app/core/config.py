@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -11,4 +12,7 @@ MOCK_MSMES_FILE = DATA_DIR / "mock_msmes.json"
 
 APP_NAME = "Adhikar Setu API"
 API_PREFIX = "/api"
-ALLOWED_ORIGINS = ["*"]
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
+	"ALLOWED_ORIGINS",
+	"http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
+).split(",") if origin.strip()]

@@ -2,4 +2,4 @@ fastapi
 uvicorn[standard]
 pandas
 python-multipart
-pydantic
+pydantic>=2.0.0

@@ -1,56 +1,73 @@
 from __future__ import annotations
 
-from ..schemas.rejection import RejectionExplanationResponse
+from typing import Any
+import uuid
 
 
 class AIExplainer:
-    def build_explanation(self, extracted_text: str, file_name: str) -> RejectionExplanationResponse:
+    def build_explanation(self, extracted_text: str, file_name: str) -> dict[str, Any]:
         normalized_text = f"{extracted_text} {file_name}".lower()
 
+        reasons: list[dict[str, Any]] = []
+        fixes: list[dict[str, Any]] = []
+
         if "gst" in normalized_text:
-            return RejectionExplanationResponse(
-                rejection_reason="GST certificate missing",
-                plain_english="Your application was rejected because GST proof was not attached.",
-                required_documents=["GST Certificate"],
-                fix_checklist=[
-                    "Upload GST Certificate",
-                    "Verify GST Number",
-                    "Resubmit Application",
-                ],
+            reasons.append(
+                {
+                    "id": 1,
+                    "title": "GST Certificate Missing",
+                    "original": "NON-SUBMISSION OF MANDATORY DOCUMENTS",
+                    "plain": "You did not attach your GST Registration Certificate.",
+                    "severity": "critical",
+                    "fix": "Download GST certificate and attach as PDF.",
+                }
             )
+            fixes.append({"id": 1, "text": "Download and attach GST Registration Certificate (PDF)", "completed": False})
+
+        if "udyam" in normalized_text or "udyam" in file_name.lower():
+            reasons.append(
+                {
+                    "id": 2,
+                    "title": "Udyam Registration Mismatch",
+                    "original": "UDYAM REGISTRATION DISCREPANCY",
+                    "plain": "The Udyam registration does not match the declared business category.",
+                    "severity": "critical",
+                    "fix": "Verify Udyam details and update the application.",
+                }
+            )
+            fixes.append({"id": 2, "text": "Verify and correct NIC code on Udyam portal", "completed": False})
 
         if "bank" in normalized_text or "account" in normalized_text:
-            return RejectionExplanationResponse(
-                rejection_reason="Bank proof missing",
-                plain_english="Your application was rejected because bank account proof was not attached.",
-                required_documents=["Bank Passbook or Cancelled Cheque"],
-                fix_checklist=[
-                    "Upload bank proof",
-                    "Check account name and IFSC",
-                    "Resubmit the application",
-                ],
+            reasons.append(
+                {
+                    "id": 3,
+                    "title": "Bank Statement Missing",
+                    "original": "BANK STATEMENT DEFICIT",
+                    "plain": "Required bank statements for the previous two financial years were not provided.",
+                    "severity": "moderate",
+                    "fix": "Provide certified bank statements for the last two years.",
+                }
             )
+            fixes.append({"id": 3, "text": "Obtain certified bank statements for last 2 years", "completed": False})
 
-        if "udyam" in normalized_text:
-            return RejectionExplanationResponse(
-                rejection_reason="Udyam registration unavailable",
-                plain_english="Your application was rejected because the Udyam registration proof was not found.",
-                required_documents=["Udyam Registration Certificate"],
-                fix_checklist=[
-                    "Upload Udyam certificate",
-                    "Verify Udyam number",
-                    "Resubmit the application",
-                ],
+        if not reasons:
+            reasons.append(
+                {
+                    "id": 10,
+                    "title": "Supporting Document Mismatch",
+                    "original": "DOCUMENT MISMATCH",
+                    "plain": "One or more supporting documents were missing or unclear.",
+                    "severity": "moderate",
+                    "fix": "Attach clear scans of all required documents as per the scheme checklist.",
+                }
             )
+            fixes.append({"id": 10, "text": "Attach clear scans of required documents", "completed": False})
 
-        return RejectionExplanationResponse(
-            rejection_reason="Supporting document mismatch",
-            plain_english="Your application was rejected because one or more required supporting documents were missing or unclear.",
-            required_documents=["Application Form", "Identity Proof", "Business Registration Proof"],
-            fix_checklist=[
-                "Review the rejection note",
-                "Attach the missing documents",
-                "Check all file scans for clarity",
-                "Resubmit the application",
-            ],
-        )
+        analysis = {
+            "analysis_id": f"rej_{uuid.uuid4().hex[:8]}",
+            "summary": f"Detected {len(reasons)} potential issues in the uploaded document.",
+            "reasons": reasons,
+            "requiredFixes": fixes,
+        }
+
+        return analysis

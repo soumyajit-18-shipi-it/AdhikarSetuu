@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
 import Navbar from '@/components/navbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DISTRICTS } from '@/lib/mock-data';
+import { getAnalytics } from '@/services/api';
+import { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -50,29 +50,40 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const PARTICIPATION_CHART_DATA = DISTRICTS.map((d) => ({
-  name: d.name,
-  registered: d.registeredMSMEs,
-  submitted: d.applicationsSubmitted,
-  approved: d.approvedApplications,
-  rate: d.participationRate,
-}));
-
-const EXCLUSION_CHART_DATA = DISTRICTS.map((d) => ({
-  name: d.name,
-  excluded: d.registeredMSMEs - d.applicationsSubmitted,
-  rate: 100 - d.participationRate,
-}));
+let PARTICIPATION_CHART_DATA: any[] = [];
+let EXCLUSION_CHART_DATA: any[] = [];
 
 export default function PolicymakerPage() {
   const [activeDistrict, setActiveDistrict] = useState<string | null>('khammam');
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalRegistered = DISTRICTS.reduce((sum, d) => sum + d.registeredMSMEs, 0);
-  const totalSubmitted = DISTRICTS.reduce((sum, d) => sum + d.applicationsSubmitted, 0);
-  const totalApproved = DISTRICTS.reduce((sum, d) => sum + d.approvedApplications, 0);
-  const avgParticipation = DISTRICTS.reduce((sum, d) => sum + d.participationRate, 0) / DISTRICTS.length;
+  useEffect(() => {
+    let mounted = true;
+    getAnalytics().then((res) => {
+      if (!mounted) return;
+      setAnalytics(res);
+      setDistricts(res.districts || []);
+      setError(null);
+    }).catch((e) => {
+      console.error(e);
+      setError('Failed to load analytics');
+      // keep districts empty
+    }).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
 
-  const attentionDistrict = DISTRICTS.find((d) => d.requiresAttention);
+  const totalRegistered = districts.reduce((sum, d) => sum + (d.registeredMSMEs || 0), 0);
+  const totalSubmitted = districts.reduce((sum, d) => sum + (d.applicationsSubmitted || 0), 0);
+  const totalApproved = districts.reduce((sum, d) => sum + (d.approvedApplications || 0), 0);
+  const avgParticipation = districts.length ? districts.reduce((sum, d) => sum + (d.participationRate || 0), 0) / districts.length : 0;
+
+  const attentionDistrict = districts.find((d) => d.requiresAttention);
+
+  PARTICIPATION_CHART_DATA = districts.map((d) => ({ name: d.name, registered: d.registeredMSMEs, submitted: d.applicationsSubmitted, approved: d.approvedApplications, rate: d.participationRate }));
+  EXCLUSION_CHART_DATA = districts.map((d) => ({ name: d.name, excluded: (d.registeredMSMEs || 0) - (d.applicationsSubmitted || 0), rate: 100 - (d.participationRate || 0) }));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -175,11 +186,11 @@ export default function PolicymakerPage() {
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="excluded" name="Excluded MSMEs" radius={[0, 4, 4, 0]}>
                     {EXCLUSION_CHART_DATA.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={DISTRICTS[index].exclusionRisk === 'high' ? 'hsl(0,72%,51%)' : DISTRICTS[index].exclusionRisk === 'medium' ? 'hsl(43,90%,48%)' : 'hsl(162,63%,41%)'}
-                      />
-                    ))}
+                        <Cell
+                          key={index}
+                          fill={districts[index]?.exclusionRisk === 'high' ? 'hsl(0,72%,51%)' : districts[index]?.exclusionRisk === 'medium' ? 'hsl(43,90%,48%)' : 'hsl(162,63%,41%)'}
+                        />
+                      ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -193,8 +204,9 @@ export default function PolicymakerPage() {
               <Info size={14} className="text-slate-400" />
             </div>
 
-            {DISTRICTS.map((district) => {
-              const config = RISK_CONFIG[district.exclusionRisk];
+            {districts.map((district) => {
+              const risk = district.exclusionRisk as keyof typeof RISK_CONFIG;
+              const config = RISK_CONFIG[risk] || RISK_CONFIG.medium;
               const isActive = activeDistrict === district.id;
 
               return (
@@ -264,6 +276,12 @@ export default function PolicymakerPage() {
                 </div>
               );
             })}
+            {(!loading && districts.length === 0) && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center">No district analytics available.</div>
+            )}
+            {loading && (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center">Loading analytics…</div>
+            )}
 
             {/* Legend */}
             <div className="bg-white rounded-xl border border-slate-200 p-4 mt-2">

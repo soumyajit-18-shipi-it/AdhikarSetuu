@@ -1,11 +1,14 @@
-'use client';
-import { useState } from 'react';
+ 'use client';
 import Link from 'next/link';
 import Navbar from '@/components/navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { SCHEMES } from '@/lib/mock-data';
+import { useEffect, useState } from 'react';
+import { SCHEMES as MOCK_SCHEMES } from '@/lib/mock-data';
+import { useRouter } from 'next/navigation';
+import { useProfile } from '@/hooks/useProfile';
+import { matchSchemes, type ProfilePayload } from '@/services/api';
 import {
   CheckCircle2, XCircle, AlertCircle, Filter, Search,
   IndianRupee, ExternalLink, ChevronRight, TrendingUp, Award, Calculator
@@ -54,20 +57,54 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const [filter, setFilter] = useState<'all' | 'eligible' | 'partial' | 'ineligible'>('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { profile, matchResult, setMatchResult } = useProfile();
+  const router = useRouter();
+  const [schemes, setSchemes] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
 
-  const filtered = SCHEMES.filter((s) => {
+  useEffect(() => {
+    if (!profile) {
+      router.push('/profile');
+      return;
+    }
+    const activeProfile = profile as ProfilePayload;
+
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = matchResult || (await matchSchemes(activeProfile));
+        if (!mounted) return;
+        setMatchResult(res);
+        setSummary(res.summary || null);
+        setSchemes(res.schemes || []);
+      } catch (e) {
+        console.error(e);
+        setError('Failed to load matched schemes. Using demo data.');
+        // fallback to mock schemes so demo works
+        setSchemes(MOCK_SCHEMES as any[]);
+        setSummary({ total_schemes: MOCK_SCHEMES.length, eligible_count: MOCK_SCHEMES.filter((s: any) => s.eligibilityStatus === 'eligible').length });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, [profile]);
+
+  const filtered = schemes.filter((s) => {
     const matchStatus = filter === 'all' || s.eligibilityStatus === filter;
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      s.category.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = s.name?.toLowerCase().includes(q) || s.fullName?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
-  const eligible = SCHEMES.filter((s) => s.eligibilityStatus === 'eligible').length;
-  const partial = SCHEMES.filter((s) => s.eligibilityStatus === 'partial').length;
-  const totalBenefit = SCHEMES
-    .filter((s) => s.eligibilityStatus === 'eligible')
-    .reduce((sum, s) => sum + s.potentialBenefit, 0);
+  const eligible = schemes.filter((s) => s.eligibilityStatus === 'eligible').length;
+  const partial = schemes.filter((s) => s.eligibilityStatus === 'partial').length;
+  const totalBenefit = schemes.filter((s) => s.eligibilityStatus === 'eligible').reduce((sum, s) => sum + (s.potentialBenefit || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -97,25 +134,35 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 pb-16">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Schemes', value: SCHEMES.length, icon: Award, color: 'text-[hsl(215,80%,28%)]', bg: 'bg-blue-50' },
-            { label: 'Eligible', value: eligible, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: 'Partial Match', value: partial, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: 'Max Benefit', value: `₹${(totalBenefit / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-[hsl(215,80%,28%)]', bg: 'bg-blue-50' },
-          ].map((card, i) => {
-            const Icon = card.icon;
-            return (
-              <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center`}>
-                    <Icon size={18} className={card.color} />
-                  </div>
-                </div>
-                <div className={`text-2xl font-bold ${card.color} mb-1`}>{card.value}</div>
-                <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 animate-pulse">
+                <div className="h-6 bg-slate-100 rounded w-24 mb-3" />
+                <div className="h-6 bg-slate-100 rounded w-32 mb-2" />
+                <div className="h-3 bg-slate-100 rounded w-20" />
               </div>
-            );
-          })}
+            ))
+          ) : (
+            [
+              { label: 'Total Schemes', value: schemes.length, icon: Award, color: 'text-[hsl(215,80%,28%)]', bg: 'bg-blue-50' },
+              { label: 'Eligible', value: eligible, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: 'Partial Match', value: partial, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50' },
+              { label: 'Max Benefit', value: `₹${(totalBenefit / 100000).toFixed(1)}L`, icon: TrendingUp, color: 'text-[hsl(215,80%,28%)]', bg: 'bg-blue-50' },
+            ].map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center`}>
+                      <Icon size={18} className={card.color} />
+                    </div>
+                  </div>
+                  <div className={`text-2xl font-bold ${card.color} mb-1`}>{card.value}</div>
+                  <div className="text-xs text-slate-500 font-medium">{card.label}</div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Filters */}
@@ -148,10 +195,37 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Loading / Error */}
+        {loading && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6 text-center">
+            Loading schemes…
+          </div>
+        )}
+        {error && (
+          <div className="bg-red-50 rounded-xl border border-red-200 text-red-700 p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>{error}</div>
+              <div>
+                <Button size="sm" variant="outline" onClick={() => router.refresh()}>Retry</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Scheme Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filtered.map((scheme) => {
-            const config = STATUS_CONFIG[scheme.eligibilityStatus];
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-pulse p-6">
+                <div className="h-4 bg-slate-100 rounded w-40 mb-3" />
+                <div className="h-3 bg-slate-100 rounded w-64 mb-3" />
+                <div className="h-6 bg-slate-100 rounded w-full" />
+              </div>
+            ))
+          ) : (
+            filtered.map((scheme) => {
+            const status = scheme.eligibilityStatus as keyof typeof STATUS_CONFIG;
+            const config = STATUS_CONFIG[status] || STATUS_CONFIG.ineligible;
             const StatusIcon = config.icon;
             return (
               <div
@@ -196,7 +270,9 @@ export default function DashboardPage() {
                             ? `${(scheme.potentialBenefit / 100000).toFixed(1)}L`
                             : `${(scheme.potentialBenefit / 1000).toFixed(0)}K`}
                         </span>
-                        <span className="text-xs text-slate-400">({scheme.benefitType})</span>
+                        {scheme.benefitType ? (
+                          <span className="text-xs text-slate-400">({scheme.benefitType})</span>
+                        ) : null}
                       </div>
                     </div>
                     <Button
@@ -217,10 +293,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
 
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <Search size={40} className="mx-auto mb-4 opacity-30" />
             <p className="text-lg font-medium">No schemes match your filter</p>

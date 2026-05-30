@@ -1,12 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Navbar from '@/components/navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { REJECTION_NOTICE } from '@/lib/mock-data';
+import { uploadRejection } from '@/services/api';
+import { REJECTION_NOTICE as MOCK_REJECTION } from '@/lib/mock-data';
 import {
   Upload, FileText, Brain, AlertTriangle, CheckCircle2,
   Circle, ChevronDown, ChevronUp, Sparkles, FileWarning, RefreshCw, Info
+  , Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,9 +18,12 @@ const SEVERITY_CONFIG = {
 };
 
 export default function RejectionPage() {
-  const [uploaded, setUploaded] = useState(true);
+  const [uploaded, setUploaded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzed, setAnalyzed] = useState(true);
+  const [analyzed, setAnalyzed] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const [expanded, setExpanded] = useState<number[]>([1, 2, 3]);
   const [checklist, setChecklist] = useState<number[]>([]);
 
@@ -31,7 +36,9 @@ export default function RejectionPage() {
   };
 
   const completedCount = checklist.length;
-  const totalCount = REJECTION_NOTICE.aiExplanation.requiredFixes.length;
+  const aiExplanation = result?.aiExplanation ?? (result ? { summary: result.summary, reasons: result.reasons, requiredFixes: result.required_fixes } : null);
+  const totalCount = aiExplanation?.requiredFixes?.length || 0;
+  const documentName = result?.document?.name || result?.documentName || 'Uploaded Document';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -57,9 +64,29 @@ export default function RejectionPage() {
             <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">
               Drag and drop your PDF rejection notice, or click to browse. Supported: PDF, DOCX, JPG
             </p>
+            <input ref={fileRef} type="file" className="hidden" onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setUploaded(true);
+              setAnalyzing(true);
+              try {
+                const res = await uploadRejection(f);
+                setResult(res);
+                setAnalyzed(true);
+                setError(null);
+              } catch (err) {
+                console.error(err);
+                // fallback to mock explanation so demo can continue
+                setResult(MOCK_REJECTION);
+                setAnalyzed(true);
+                setError('Upload failed — using demo explanation');
+              } finally {
+                setAnalyzing(false);
+              }
+            }} />
             <Button
               className="bg-[hsl(215,80%,28%)] hover:bg-[hsl(215,80%,22%)] text-white gap-2"
-              onClick={() => setUploaded(true)}
+              onClick={() => fileRef?.current?.click()}
             >
               <Upload size={16} />
               Choose File
@@ -77,16 +104,27 @@ export default function RejectionPage() {
                   <FileText size={18} className="text-red-500" />
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-900 text-sm">{REJECTION_NOTICE.documentName}</div>
-                  <div className="text-xs text-slate-400">24 KB • PDF • Uploaded just now</div>
+                  <div className="font-semibold text-slate-900 text-sm">{documentName}</div>
+                  <div className="text-xs text-slate-400">{result?.document?.size_bytes ? `${Math.round(result.document.size_bytes / 1024)} KB` : result?.sizeBytes ? `${Math.round(result.sizeBytes / 1024)} KB` : '—'} • PDF • Uploaded just now</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {analyzing && (
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
+                    <Loader2 size={12} className="animate-spin" />
+                    Analyzing…
+                  </span>
+                )}
                 {analyzed && (
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
                     <Sparkles size={12} />
                     AI Analysis Complete
                   </span>
+                )}
+                {error && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
+                    {error} <button className="ml-3 underline" onClick={() => { setUploaded(false); setAnalyzed(false); setResult(null); setError(null); }}>Retry</button>
+                  </div>
                 )}
                 <Button
                   variant="outline"
@@ -101,14 +139,14 @@ export default function RejectionPage() {
             </div>
 
             {/* Summary banner */}
-            {analyzed && (
+            {analyzed && result && (
               <div className="bg-[hsl(215,80%,28%)] rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
                     <Brain size={22} className="text-white" />
                   </div>
                   <div>
-                    <div className="text-white font-bold text-lg">{REJECTION_NOTICE.aiExplanation.summary}</div>
+                      <div className="text-white font-bold text-lg">{aiExplanation?.summary}</div>
                     <div className="text-white/60 text-sm mt-0.5">
                       2 critical issues • 1 moderate issue • Fixable in ~3 days
                     </div>
@@ -139,7 +177,7 @@ export default function RejectionPage() {
                 </div>
                 <div className="p-6">
                   <pre className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-mono bg-slate-50 rounded-xl p-4 border border-slate-200 max-h-[520px] overflow-y-auto">
-                    {REJECTION_NOTICE.originalText}
+                    {result?.originalText || 'No text extracted from document.'}
                   </pre>
                 </div>
               </div>
@@ -157,8 +195,8 @@ export default function RejectionPage() {
                 </div>
 
                 <div className="p-6 space-y-4 max-h-[580px] overflow-y-auto">
-                  {REJECTION_NOTICE.aiExplanation.reasons.map((reason) => {
-                    const config = SEVERITY_CONFIG[reason.severity];
+                  {aiExplanation?.reasons?.map((reason: any) => {
+                    const config = SEVERITY_CONFIG[reason.severity as keyof typeof SEVERITY_CONFIG] || SEVERITY_CONFIG.moderate;
                     const isOpen = expanded.includes(reason.id);
                     return (
                       <div key={reason.id} className={`rounded-xl border ${config.border} overflow-hidden`}>
@@ -186,7 +224,7 @@ export default function RejectionPage() {
                             </div>
                             <div className={`${config.bg} rounded-lg px-4 py-3 border ${config.border}`}>
                               <p className="text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">How to Fix</p>
-                              <p className={`text-sm font-medium ${config.text}`}>{reason.fix}</p>
+                                <p className={`text-sm font-medium ${config.text}`}>{reason.fix}</p>
                             </div>
                           </div>
                         )}
@@ -214,12 +252,12 @@ export default function RejectionPage() {
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-6">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{ width: `${(completedCount / totalCount) * 100}%` }}
+                  style={{ width: `${totalCount ? (completedCount / totalCount) * 100 : 0}%` }}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {REJECTION_NOTICE.aiExplanation.requiredFixes.map((fix) => {
+                {aiExplanation?.requiredFixes?.map((fix: any) => {
                   const done = checklist.includes(fix.id);
                   return (
                     <button

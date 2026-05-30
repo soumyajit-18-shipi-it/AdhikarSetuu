@@ -107,8 +107,19 @@ def _scheme_matches_profile(context: MatchContext) -> EligibleScheme | None:
     if score < 2:
         return None
 
+    mapped_scheme = {
+        "id": scheme.get("id"),
+        "name": scheme.get("name"),
+        "category": scheme.get("category"),
+        "benefit_amount": int(scheme.get("potential_benefit", scheme.get("benefit_amount", 0))),
+        "gst_required": bool(scheme.get("gst_required", False)),
+        "women_owned_bonus": bool(scheme.get("women_owned_bonus", False)),
+        "exporter_required": bool(scheme.get("exporter_required", False)),
+        "description": scheme.get("description", ""),
+    }
+
     return EligibleScheme(
-        **scheme,
+        **mapped_scheme,
         match_score=score,
         match_reasons=reasons,
     )

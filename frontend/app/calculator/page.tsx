@@ -3,7 +3,10 @@ import Link from 'next/link';
 import Navbar from '@/components/navbar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CALCULATOR_DATA } from '@/lib/mock-data';
+import { useEffect, useState } from 'react';
+import { useProfile } from '@/hooks/useProfile';
+import { calculateLoss, type ProfilePayload } from '@/services/api';
+import { CALCULATOR_DATA as MOCK_CALCULATOR } from '@/lib/mock-data';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area,
@@ -41,6 +44,35 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function CalculatorPage() {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const { profile } = useProfile();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    const currentProfile = profile as ProfilePayload;
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await calculateLoss(currentProfile);
+        if (!mounted) return;
+        setData(res);
+        setError(null);
+      } catch (e) {
+        console.error(e);
+        setError('Failed to calculate loss — using demo estimates');
+        // fallback to demo data
+        setData(MOCK_CALCULATOR as any);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, [profile]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="gradient-hero">
@@ -57,6 +89,18 @@ export default function CalculatorPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-4 pb-16">
         {/* Hero Financial Card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Error:</strong> {error}
+                </div>
+                <div>
+                  <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="bg-gradient-to-r from-[hsl(215,80%,28%)] to-[hsl(215,75%,20%)] p-8 md:p-12">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
@@ -65,12 +109,16 @@ export default function CalculatorPage() {
                   You may be missing
                 </p>
                 <div className="flex items-end gap-3 mb-3">
-                  <span className="text-6xl md:text-7xl font-bold text-white tracking-tight">₹12,50,000</span>
+                  {loading ? (
+                    <div className="h-14 w-72 bg-white/20 rounded animate-pulse" />
+                  ) : (
+                    <span className="text-6xl md:text-7xl font-bold text-white tracking-tight">{data ? `₹${(data.totalPotential || 0).toLocaleString()}` : '—'}</span>
+                  )}
                 </div>
                 <p className="text-white/70 text-lg">in available government support over the next 3 years</p>
                 <div className="flex items-center gap-2 mt-4">
                   <CheckCircle2 size={15} className="text-emerald-400" />
-                  <span className="text-white/60 text-sm">Based on 7 eligible schemes matched to your profile</span>
+                  <span className="text-white/60 text-sm">Based on {data ? (data.breakdown?.length || 0) : '—'} eligible schemes matched to your profile</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 md:min-w-64">
@@ -119,7 +167,7 @@ export default function CalculatorPage() {
                 <TrendingUp size={18} className="text-[hsl(215,80%,28%)]" />
               </div>
               <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={CALCULATOR_DATA.cumulativeChart}>
+                <AreaChart data={data?.cumulativeChart || []}>
                   <defs>
                     <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(215,80%,28%)" stopOpacity={0.2} />
@@ -156,16 +204,20 @@ export default function CalculatorPage() {
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={CALCULATOR_DATA.breakdown} barSize={14}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="scheme" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => formatRupees(v)} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="year1" name="Year 1" fill="hsl(215,80%,28%)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="year2" name="Year 2" fill="hsl(43,90%,48%)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="year3" name="Year 3" fill="hsl(162,63%,41%)" radius={[3, 3, 0, 0]} />
-                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                </BarChart>
+                {loading ? (
+                  <div className="h-48 flex items-center justify-center">Loading chart…</div>
+                ) : (
+                  <BarChart data={data?.breakdown || []} barSize={14}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="scheme" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => formatRupees(v)} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="year1" name="Year 1" fill="hsl(215,80%,28%)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="year2" name="Year 2" fill="hsl(43,90%,48%)" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="year3" name="Year 3" fill="hsl(162,63%,41%)" radius={[3, 3, 0, 0]} />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                  </BarChart>
+                )}
               </ResponsiveContainer>
             </div>
           </div>
@@ -179,7 +231,7 @@ export default function CalculatorPage() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
-                    data={CALCULATOR_DATA.pieData}
+                    data={data?.pieData || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={55}
@@ -187,15 +239,15 @@ export default function CalculatorPage() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {CALCULATOR_DATA.pieData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} stroke="none" />
+                    {(data?.pieData || []).map((entry: any, index: number) => (
+                      <Cell key={index} fill={entry.color || '#ccc'} stroke="none" />
                     ))}
                   </Pie>
                   <Tooltip formatter={(val: number) => formatRupees(val)} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-2 mt-2">
-                {CALCULATOR_DATA.pieData.map((d, i) => (
+                {(data?.pieData || []).map((d: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
@@ -211,7 +263,7 @@ export default function CalculatorPage() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
               <h3 className="font-bold text-slate-900 mb-4">Benefit Breakdown</h3>
               <div className="space-y-3">
-                {SCHEME_ROWS.map((row, i) => (
+                {(data?.breakdown || []).map((row: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm border-b border-slate-100 pb-3 last:border-0 last:pb-0">
                     <div>
                       <div className="font-semibold text-slate-900">{row.scheme}</div>
@@ -227,7 +279,7 @@ export default function CalculatorPage() {
                 ))}
                 <div className="flex items-center justify-between pt-2 border-t-2 border-[hsl(215,80%,28%)]">
                   <div className="font-bold text-slate-900">Grand Total</div>
-                  <div className="font-bold text-[hsl(215,80%,28%)] text-lg">₹12,50,000</div>
+                  <div className="font-bold text-[hsl(215,80%,28%)] text-lg">{data ? formatRupees(data.totalPotential || 0) : '—'}</div>
                 </div>
               </div>
             </div>

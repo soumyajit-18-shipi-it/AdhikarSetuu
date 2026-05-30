@@ -9,6 +9,7 @@ from .api.routes.analytics import router as analytics_router
 from .api.routes.loss import router as loss_router
 from .api.routes.rejection import router as rejection_router
 from .api.routes.schemes import router as schemes_router
+from .api.routes.meta import router as meta_router
 from .core.config import ALLOWED_ORIGINS, APP_NAME, API_PREFIX
 
 
@@ -18,7 +19,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(schemes_router, prefix=API_PREFIX)
     app.include_router(loss_router, prefix=API_PREFIX)
     app.include_router(rejection_router, prefix=API_PREFIX)
+    app.include_router(meta_router, prefix=API_PREFIX)
     app.include_router(analytics_router, prefix=API_PREFIX)
 
     @app.get("/")

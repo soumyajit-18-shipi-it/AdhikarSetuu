@@ -1,5 +1,5 @@
-'use client';
-import { useState } from 'react';
+"use client";
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/navbar';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { SECTORS, TELANGANA_DISTRICTS } from '@/lib/mock-data';
+import { getSectors, getDistricts, matchSchemes } from '@/services/api';
+import { useProfile } from '@/hooks/useProfile';
+import DEMO_PROFILES from '@/data/demoProfiles';
+import { SECTORS as MOCK_SECTORS, TELANGANA_DISTRICTS as MOCK_DISTRICTS } from '@/lib/mock-data';
 import { Building2, MapPin, Users, IndianRupee, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { setProfile, setMatchResult } = useProfile();
   const [form, setForm] = useState({
     businessName: '',
     sector: '',
@@ -24,12 +28,60 @@ export default function ProfilePage() {
     womenOwned: '',
     district: '',
   });
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    getSectors().then((s) => mounted && setSectors(s)).catch(() => setSectors(MOCK_SECTORS));
+    getDistricts().then((d) => mounted && setDistricts(d)).catch(() => setDistricts(MOCK_DISTRICTS));
+    return () => { mounted = false; };
+  }, []);
+
+  function _mapTurnoverToNumber(val: string): number {
+    switch (val) {
+      case 'under-5l': return 250000;
+      case '5l-25l': return 1500000;
+      case '25l-1cr': return 2500000;
+      case '1cr-5cr': return 3000000;
+      case '5cr-10cr': return 7000000;
+      case 'above-10cr': return 20000000;
+      default: return 0;
+    }
+  }
+
+  function _mapEmployeesToNumber(val: string): number {
+    if (val.includes('-')) return parseInt(val.split('-')[0], 10);
+    if (val === 'above-250') return 300;
+    return parseInt(val, 10) || 0;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    router.push('/dashboard');
+    try {
+      const payload = {
+        business_name: form.businessName,
+        sector: form.sector,
+        annual_turnover: _mapTurnoverToNumber(form.annualTurnover),
+        employees: _mapEmployeesToNumber(form.employees),
+        gst_registered: form.gstRegistered === 'yes',
+        exporter: form.exporter === 'yes',
+        women_owned: form.womenOwned === 'yes',
+        district: form.district,
+      };
+
+      setProfile(payload);
+      const res = await matchSchemes(payload);
+      setMatchResult(res);
+      router.push('/dashboard');
+    } catch (err) {
+      // simple error handling
+      console.error(err);
+      alert('Failed to analyze profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const isComplete = Object.values(form).every(Boolean);
@@ -90,13 +142,13 @@ export default function ProfilePage() {
                     <Label className="text-sm font-semibold text-slate-700">Sector / Industry</Label>
                     <Select value={form.sector} onValueChange={(v) => setForm({ ...form, sector: v })}>
                       <SelectTrigger className="h-11 border-slate-200 focus:border-[hsl(215,80%,28%)]">
-                        <SelectValue placeholder="Select your sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECTORS.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
+                          <SelectValue placeholder="Select your sector" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sectors.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
                     </Select>
                   </div>
 
@@ -187,7 +239,7 @@ export default function ProfilePage() {
                         <SelectValue placeholder="Select your district" />
                       </SelectTrigger>
                       <SelectContent>
-                        {TELANGANA_DISTRICTS.map((d) => (
+                        {districts.map((d) => (
                           <SelectItem key={d} value={d}>{d}</SelectItem>
                         ))}
                       </SelectContent>
@@ -213,6 +265,48 @@ export default function ProfilePage() {
                         </>
                       )}
                     </Button>
+                    <div className="mt-3 flex items-center gap-2">
+                      <select
+                        aria-label="Choose demo profile"
+                        className="h-9 rounded border-slate-200"
+                        onChange={(e) => {
+                          const idx = Number(e.target.value);
+                          const demo = DEMO_PROFILES[idx];
+                          if (!demo) return;
+                          setForm({
+                            businessName: demo.business_name,
+                            sector: demo.sector,
+                            annualTurnover: '25l-1cr',
+                            employees: '21-50',
+                            gstRegistered: demo.gst_registered ? 'yes' : 'no',
+                            exporter: demo.exporter ? 'yes' : 'no',
+                            womenOwned: demo.women_owned ? 'yes' : 'no',
+                            district: demo.district,
+                          });
+                        }}
+                      >
+                        <option value="0">Load Demo Profile</option>
+                        {DEMO_PROFILES.map((d, i) => (
+                          <option key={i} value={i}>{d.business_name}</option>
+                        ))}
+                      </select>
+                      <Button type="button" variant="ghost" onClick={() => {
+                        // quick fallback: populate first demo
+                        const demo = DEMO_PROFILES[0];
+                        setForm({
+                          businessName: demo.business_name,
+                          sector: demo.sector,
+                          annualTurnover: '25l-1cr',
+                          employees: '21-50',
+                          gstRegistered: demo.gst_registered ? 'yes' : 'no',
+                          exporter: demo.exporter ? 'yes' : 'no',
+                          womenOwned: demo.women_owned ? 'yes' : 'no',
+                          district: demo.district,
+                        });
+                      }}>
+                        Load Demo
+                      </Button>
+                    </div>
                     {!isComplete && (
                       <p className="text-xs text-slate-400 text-center mt-2">
                         Please fill all fields to continue ({8 - completedFields} remaining)
