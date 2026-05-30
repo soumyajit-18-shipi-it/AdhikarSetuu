@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 215 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 12%;
+    --primary: 215 80% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 215 20% 96%;
+    --secondary-foreground: 215 25% 12%;
+    --muted: 215 15% 95%;
+    --muted-foreground: 215 15% 45%;
+    --accent: 43 90% 48%;
+    --accent-foreground: 215 25% 12%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 215 80% 28%;
+    --chart-1: 215 80% 28%;
+    --chart-2: 43 90% 48%;
+    --chart-3: 162 63% 41%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 262 52% 47%;
+    --radius: 0.625rem;
+
+    /* Custom brand tokens */
+    --blue-50: 215 100% 97%;
+    --blue-100: 215 95% 92%;
+    --blue-200: 215 88% 83%;
+    --blue-500: 215 80% 48%;
+    --blue-600: 215 80% 38%;
+    --blue-700: 215 80% 28%;
+    --blue-800: 215 80% 20%;
+    --blue-900: 215 80% 14%;
+    --gold-400: 43 95% 58%;
+    --gold-500: 43 90% 48%;
+    --gold-600: 43 85% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .gradient-blue {
+    background: linear-gradient(135deg, hsl(215, 80%, 28%) 0%, hsl(215, 80%, 18%) 100%);
+  }
+  .gradient-gold {
+    background: linear-gradient(135deg, hsl(43, 90%, 48%) 0%, hsl(38, 92%, 40%) 100%);
+  }
+  .gradient-hero {
+    background: linear-gradient(160deg, hsl(215, 80%, 28%) 0%, hsl(215, 75%, 20%) 50%, hsl(220, 70%, 15%) 100%);
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(215, 15%, 95%); }
+::-webkit-scrollbar-thumb { background: hsl(215, 20%, 75%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(215, 30%, 60%); }
