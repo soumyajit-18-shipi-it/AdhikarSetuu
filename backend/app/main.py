@@ -10,8 +10,7 @@ from .api.routes.loss import router as loss_router
 from .api.routes.rejection import router as rejection_router
 from .api.routes.schemes import router as schemes_router
 from .api.routes.meta import router as meta_router
-from .api.routes.public import router as public_router
-from .core.config import APP_NAME, API_PREFIX, CORS_ORIGIN
+from .core.config import ALLOW_ORIGIN_REGEX, ALLOWED_ORIGINS, APP_NAME, API_PREFIX
 
 
 def create_app() -> FastAPI:
@@ -19,7 +18,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=CORS_ORIGIN,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_origin_regex=ALLOW_ORIGIN_REGEX,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -42,7 +42,6 @@ def create_app() -> FastAPI:
     app.include_router(rejection_router, prefix=API_PREFIX)
     app.include_router(meta_router, prefix=API_PREFIX)
     app.include_router(analytics_router, prefix=API_PREFIX)
-    app.include_router(public_router)
 
     @app.get("/")
     async def root() -> dict[str, str]:

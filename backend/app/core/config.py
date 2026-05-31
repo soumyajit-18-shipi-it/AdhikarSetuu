@@ -12,9 +12,8 @@ MOCK_MSMES_FILE = DATA_DIR / "mock_msmes.json"
 
 APP_NAME = "Adhikar Setu API"
 API_PREFIX = "/api"
-PORT = int(os.getenv("PORT", "8000"))
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-CORS_ORIGIN = [origin.strip() for origin in os.getenv(
-	"CORS_ORIGIN",
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
+	"ALLOWED_ORIGINS",
 	"http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
 ).split(",") if origin.strip()]
+ALLOW_ORIGIN_REGEX = os.getenv("ALLOW_ORIGIN_REGEX", r"https://.*\.vercel\.app")
