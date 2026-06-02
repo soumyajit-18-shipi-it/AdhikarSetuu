@@ -1,0 +1,32 @@
+[cliff]
+changelog = "CHANGELOG.md"
+
+[git]
+commit_preprocessors = [
+  "conventional_commits"
+]
+
+[template]
+
+[template.fragments]
+
+[sections]
+# Conventional Commit sections
+# https://github.com/orhun/git-cliff/blob/master/README.md
+
+# Order matters
+categories = [
+  { title = "✨ Features", regexp = "^(feat|feature)(\\(.+\\))?:" },
+  { title = "🐛 Bug Fixes", regexp = "^(fix|bugfix)(\\(.+\\))?:" },
+  { title = "🛠 Maintenance", regexp = "^(refactor|perf|chore)(\\(.+\\))?:" },
+  { title = "📚 Documentation", regexp = "^(docs)(\\(.+\\))?:" },
+  { title = "🔒 Security", regexp = "^(security)(\\(.+\\))?:" },
+  { title = "Other", regexp = ".*" }
+]
+
+# Versioning and release notes
+# Use tags like v0.1.0
+
+[output]
+# Keep default output formatting
+

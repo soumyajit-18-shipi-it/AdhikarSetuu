@@ -220,6 +220,23 @@ http://localhost:3000
 
 ---
 
+## Security
+
+See [SECURITY.md](./SECURITY.md) for the responsible disclosure process and security hardening.
+
+## CI/CD
+
+This repository includes GitLab CI jobs for linting, testing, and security scanning. See [.gitlab-ci.yml](./.gitlab-ci.yml) for details.
+
+---
+
+## License
+
+This project is licensed under the **GNU Affero General Public License (AGPL) v3**. See [LICENSE](./LICENSE) for the full license text.
+
+---
+
 ## Team
 
 Built for the Civic Tech Hackathon to improve access, transparency, and utilization of public welfare programs for MSMEs.
+

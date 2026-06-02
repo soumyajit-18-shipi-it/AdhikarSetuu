@@ -1,0 +1,50 @@
+image: python:3.14-slim
+
+stages:
+  - lint
+  - security
+  - test
+  - build
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_CACHE_DIR: "1"
+
+cache:
+  paths:
+    - .cache/pip
+
+before_script:
+  - python -m pip install --upgrade pip
+  - python -m pip install --no-cache-dir -r backend/requirements.txt
+  - python -m pip install --no-cache-dir pytest pytest-cov ruff mypy bandit vulture pyupgrade flake8 pylint semgrep gitleaks
+
+lint:
+  stage: lint
+  script:
+    - ruff check backend/app
+    - mypy --config-file pyproject.toml backend/app
+
+security_sast:
+  stage: security
+  script:
+    - bandit -r backend/app
+    - semgrep --config auto --error --severity=high,medium --metrics=off
+
+security_secrets_and_deps:
+  stage: security
+  script:
+    - gitleaks detect --source . --redact --report-path gitleaks-report.json
+    - pip check
+
+unit_tests:
+  stage: test
+  script:
+    - pytest --cov=backend/app --cov-report=term-missing --cov-fail-under=80
+
+build:
+  stage: build
+  script:
+    - docker build -t adhikarsetu-backend:ci .
+
+

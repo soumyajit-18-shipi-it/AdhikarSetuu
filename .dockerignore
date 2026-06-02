@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.venv/
+venv/
+
+# Node
+frontend/node_modules/
+frontend/frontend/node_modules/
+
+# Build output
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.tox/
+**/.coverage
+**/htmlcov/
+
+# Git
+.git/
+
+# Local env/secrets
+.env
+.env.*
+
+# Misc
+*.log
+.DS_Store
+

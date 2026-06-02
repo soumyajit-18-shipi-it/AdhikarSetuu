@@ -1,29 +1,32 @@
-# dependencies
-/frontend/node_modules/
-/frontend/frontend/node_modules/
-
-# next.js build output
-/frontend/.next/
-/frontend/frontend/.next/
-
-# generated types and env files
-/frontend/next-env.d.ts
-/frontend/frontend/next-env.d.ts
-
-# python caches
-**/__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# local envs
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
 .venv/
 venv/
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Coverage
+.coverage
+htmlcov/
 
-# vercel
-.vercel
+# Ruff
+.ruff_cache/
+
+# Pytest
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/frontend/node_modules/
+
+# Next.js
+frontend/.next/
+frontend/frontend/.next/
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
